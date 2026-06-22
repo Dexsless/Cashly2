@@ -1,6 +1,6 @@
 export const DEFAULT_CURRENCY = 'IDR'
 
-export const CURRENCY_SYMBOLS = { IDR: 'Rp.', USD: '$', EUR: '€', JPY: '¥' }
+export const CURRENCY_SYMBOLS = { IDR: 'Rp', USD: '$', EUR: '€', JPY: '¥' }
 
 export const STATIC_EXCHANGE_RATES = {
   IDR: 1,
@@ -28,7 +28,7 @@ export function formatCurrency(value, currency = 'IDR') {
       maximumFractionDigits: 0,
     }).format(Math.abs(safe))
 
-    return `${safe < 0 ? '-' : ''}Rp.${formattedAmount}`
+    return `${safe < 0 ? '-' : ''}Rp${formattedAmount}`
   }
 
   return new Intl.NumberFormat(undefined, {

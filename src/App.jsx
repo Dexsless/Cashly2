@@ -2071,7 +2071,7 @@ function App() {
     setNotice('')
   }
 
-  const currencySymbol = CURRENCY_SYMBOLS[selectedCurrency] ?? 'Rp.'
+  const currencySymbol = CURRENCY_SYMBOLS[selectedCurrency] ?? 'Rp'
 
   if (isMobile) {
     if (mobileStep === 1) {
