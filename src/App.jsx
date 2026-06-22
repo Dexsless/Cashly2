@@ -17,10 +17,10 @@ import './App.css'
 
 import {
   DEFAULT_CURRENCY,
-  CURRENCY_SYMBOLS,
   STATIC_EXCHANGE_RATES,
   convertCurrency,
   formatCurrency,
+  getCurrencySymbol,
   readSavedCurrency
 } from './utils/currency'
 
@@ -739,8 +739,8 @@ function readMonthlyHistory() {
   }
 }
 
-function formatRupiah(value, currency = DEFAULT_CURRENCY) {
-  return formatCurrency(Number(value), currency)
+function formatRupiah(value, currency = DEFAULT_CURRENCY, language = DEFAULT_LANGUAGE) {
+  return formatCurrency(Number(value), currency, language)
 }
 
 
@@ -781,7 +781,7 @@ function getStatus(totalIncome, totalExpense, language = DEFAULT_LANGUAGE, curre
   const balance = totalIncome - totalExpense
 
   if (balance > 0) {
-    const formattedBalance = formatRupiah(balance, currency)
+    const formattedBalance = formatRupiah(balance, currency, language)
 
     return {
       key: 'surplus',
@@ -806,7 +806,7 @@ function getStatus(totalIncome, totalExpense, language = DEFAULT_LANGUAGE, curre
     }
   }
 
-  const formattedDeficit = formatRupiah(Math.abs(balance), currency)
+  const formattedDeficit = formatRupiah(Math.abs(balance), currency, language)
 
   return {
     key: 'deficit',
@@ -827,7 +827,7 @@ function getProjectedStatus(balance, language = DEFAULT_LANGUAGE, currency = DEF
       key: 'surplus',
       label: copy.surplus.label,
       tone: 'positive',
-      headline: copy.surplus.headline(formatRupiah(balance, currency)),
+      headline: copy.surplus.headline(formatRupiah(balance, currency, language)),
       message: copy.surplus.message,
     }
   }
@@ -846,7 +846,7 @@ function getProjectedStatus(balance, language = DEFAULT_LANGUAGE, currency = DEF
     key: 'deficit',
     label: copy.deficit.label,
     tone: 'danger',
-    headline: copy.deficit.headline(formatRupiah(Math.abs(balance), currency)),
+    headline: copy.deficit.headline(formatRupiah(Math.abs(balance), currency, language)),
     message: copy.deficit.message,
   }
 }
@@ -890,7 +890,13 @@ function formatPercent(value, total) {
 
 function createBarChartSvg(
   data,
-  { ariaLabel = 'Grafik batang laporan', currency = DEFAULT_CURRENCY, width = 560, height = 260 } = {},
+  {
+    ariaLabel = 'Grafik batang laporan',
+    currency = DEFAULT_CURRENCY,
+    language = DEFAULT_LANGUAGE,
+    width = 560,
+    height = 260,
+  } = {},
 ) {
   const maxValue = Math.max(...data.map((item) => item.value), 1)
   const plotHeight = height - 82
@@ -908,7 +914,7 @@ function createBarChartSvg(
         return `
           <rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="2" fill="${item.color}" />
           <text x="${x + barWidth / 2}" y="${height - 38}" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">${escapeHtml(item.label)}</text>
-          <text x="${x + barWidth / 2}" y="${height - 18}" text-anchor="middle" font-size="11" fill="#475569">${escapeHtml(formatRupiah(item.value, currency))}</text>
+          <text x="${x + barWidth / 2}" y="${height - 18}" text-anchor="middle" font-size="11" fill="#475569">${escapeHtml(formatRupiah(item.value, currency, language))}</text>
         `
       }).join('')}
     </svg>
@@ -918,7 +924,14 @@ function createBarChartSvg(
 function createDonutChartSvg(
   data,
   total,
-  { ariaLabel = 'Grafik donut laporan', currency = DEFAULT_CURRENCY, totalLabel = 'Total', width = 560, height = 260 } = {},
+  {
+    ariaLabel = 'Grafik donut laporan',
+    currency = DEFAULT_CURRENCY,
+    language = DEFAULT_LANGUAGE,
+    totalLabel = 'Total',
+    width = 560,
+    height = 260,
+  } = {},
 ) {
   const radius = 74
   const circumference = 2 * Math.PI * radius
@@ -944,13 +957,13 @@ function createDonutChartSvg(
         ${segments.join('')}
       </g>
       <text x="130" y="121" text-anchor="middle" font-size="12" fill="#475569">${escapeHtml(totalLabel)}</text>
-      <text x="130" y="141" text-anchor="middle" font-size="13" font-weight="800" fill="#0f172a">${escapeHtml(formatRupiah(total, currency))}</text>
+      <text x="130" y="141" text-anchor="middle" font-size="13" font-weight="800" fill="#0f172a">${escapeHtml(formatRupiah(total, currency, language))}</text>
       ${data.map((item, index) => {
         const y = 62 + index * 36
         return `
           <circle cx="285" cy="${y - 4}" r="4" fill="${item.color}" />
           <text x="302" y="${y}" font-size="13" font-weight="700" fill="#0f172a">${escapeHtml(item.label)}</text>
-          <text x="302" y="${y + 18}" font-size="11" fill="#475569">${escapeHtml(formatRupiah(item.value, currency))} - ${escapeHtml(formatPercent(item.value, total))}</text>
+          <text x="302" y="${y + 18}" font-size="11" fill="#475569">${escapeHtml(formatRupiah(item.value, currency, language))} - ${escapeHtml(formatPercent(item.value, total))}</text>
         `
       }).join('')}
     </svg>
@@ -961,7 +974,8 @@ function createPrintableReportHtml(report) {
   const languageCopy = getLanguageCopy(report.language)
   const reportCopy = languageCopy.report
   const reportCurrency = report.currency ?? DEFAULT_CURRENCY
-  const formatReportCurrency = (value) => formatRupiah(value, reportCurrency)
+  const reportLanguage = report.language ?? DEFAULT_LANGUAGE
+  const formatReportCurrency = (value) => formatRupiah(value, reportCurrency, reportLanguage)
   const inputExpenseTotal = report.expenseChartData.reduce((sum, item) => sum + item.value, 0)
   const bisectionRows = report.bisectionResult.rows
     .map((row) => `
@@ -1059,13 +1073,14 @@ function createPrintableReportHtml(report) {
                 ${createBarChartSvg([
                   { label: languageCopy.fields.income, value: report.totalIncome, color: '#0f294a' },
                   { label: languageCopy.fields.expense, value: report.totalExpense, color: '#0f766e' },
-                ], { ariaLabel: languageCopy.charts.barAria, currency: reportCurrency })}
+                ], { ariaLabel: languageCopy.charts.barAria, currency: reportCurrency, language: reportLanguage })}
               </div>
               <div>
                 <h3>${escapeHtml(languageCopy.charts.expensePercentage)}</h3>
                 ${createDonutChartSvg(report.expenseChartData, inputExpenseTotal, {
                   ariaLabel: languageCopy.charts.pieAria,
                   currency: reportCurrency,
+                  language: reportLanguage,
                   totalLabel: languageCopy.charts.total,
                 })}
               </div>
@@ -1105,7 +1120,8 @@ function createReportPdf(report) {
   const languageCopy = getLanguageCopy(report.language)
   const reportCopy = languageCopy.report
   const reportCurrency = report.currency ?? DEFAULT_CURRENCY
-  const formatReportCurrency = (value) => formatRupiah(value, reportCurrency)
+  const reportLanguage = report.language ?? DEFAULT_LANGUAGE
+  const formatReportCurrency = (value) => formatRupiah(value, reportCurrency, reportLanguage)
   const pageWidth = 595.28
   const pageHeight = 841.89
   const margin = 42
@@ -1687,8 +1703,8 @@ function App() {
 
   const t = getLanguageCopy(language)
   const formatRupiah = useCallback(
-    (value) => formatCurrency(Number(value), selectedCurrency),
-    [selectedCurrency],
+    (value) => formatCurrency(Number(value), selectedCurrency, language),
+    [language, selectedCurrency],
   )
   const translatedIncomeFields = useMemo(() => translateFields(incomeFields, language), [language])
   const translatedExpenseFields = useMemo(() => translateFields(expenseFields, language), [language])
@@ -2071,7 +2087,7 @@ function App() {
     setNotice('')
   }
 
-  const currencySymbol = CURRENCY_SYMBOLS[selectedCurrency] ?? 'Rp'
+  const currencySymbol = getCurrencySymbol(selectedCurrency, language)
 
   if (isMobile) {
     if (mobileStep === 1) {
