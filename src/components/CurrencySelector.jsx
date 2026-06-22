@@ -3,7 +3,7 @@ import { CircleDollarSign, RefreshCw } from 'lucide-react'
 
 const CurrencySelector = React.memo(({ currency, onChange, ratesLoading, ratesLive }) => {
   const options = [
-    { code: 'IDR', label: 'IDR', symbol: 'Rp', title: 'Indonesian Rupiah' },
+    { code: 'IDR', label: 'IDR', symbol: 'Rp.', title: 'Indonesian Rupiah' },
     { code: 'USD', label: 'USD', symbol: '$',  title: 'US Dollar' },
     { code: 'EUR', label: 'EUR', symbol: '€',  title: 'Euro' },
     { code: 'JPY', label: 'JPY', symbol: '¥',  title: 'Japanese Yen' },

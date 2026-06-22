@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import CurrencySelector from './CurrencySelector'
 
-const MoneyInput = React.memo(({ error, field, value, onChange, currencySymbol = 'Rp' }) => {
+const MoneyInput = React.memo(({ error, field, value, onChange, currencySymbol = 'Rp.' }) => {
   const Icon = field.icon
   const errorId = `${field.key}-error`
 

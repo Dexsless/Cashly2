@@ -1,6 +1,6 @@
 export const DEFAULT_CURRENCY = 'IDR'
 
-export const CURRENCY_SYMBOLS = { IDR: 'Rp', USD: '$', EUR: '€', JPY: '¥' }
+export const CURRENCY_SYMBOLS = { IDR: 'Rp.', USD: '$', EUR: '€', JPY: '¥' }
 
 export const STATIC_EXCHANGE_RATES = {
   IDR: 1,
@@ -22,6 +22,15 @@ export function formatCurrency(value, currency = 'IDR') {
   const num = Number(value)
   const safe = Number.isFinite(num) ? num : 0
   const fraction = currency === 'JPY' || currency === 'IDR' ? 0 : 2
+  if (currency === 'IDR') {
+    const formattedAmount = new Intl.NumberFormat(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(Math.abs(safe))
+
+    return `${safe < 0 ? '-' : ''}Rp.${formattedAmount}`
+  }
+
   return new Intl.NumberFormat(undefined, {
     style: 'currency',
     currency,
