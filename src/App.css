@@ -1572,6 +1572,18 @@ input:focus-visible {
   border-radius: 2px;
 }
 
+.mobile-result-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 14px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
 /* Live rates badge */
 .rates-live {
   display: inline-flex;

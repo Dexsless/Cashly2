@@ -118,6 +118,7 @@ const DesktopDashboard = ({
   predictedStatus,
   projectionDataset,
   projectionMethod,
+  setProjectionMethod,
   monthlyHistory,
   handleLoadHistory,
   handleDeleteHistory,
@@ -328,7 +329,7 @@ const DesktopDashboard = ({
           setIsFormulaOpen={setIsFormulaOpen}
           nextMonthKey={nextMonthKey}
           numericalProjection={numericalProjection}
-          onProjectionMethodChange={setSelectedMonth}
+          onProjectionMethodChange={setProjectionMethod}
           predictedStatus={predictedStatus}
           projectionDataset={projectionDataset}
           projectionMethod={projectionMethod}

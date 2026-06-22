@@ -1,36 +1,18 @@
-import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react'
 import {
-  AlertTriangle,
-  BarChart3,
   BookOpen,
   BriefcaseBusiness,
   Bus,
-  CalendarDays,
   Calculator,
-  ChevronDown,
   CircleDollarSign,
-  Download,
-  Globe,
-  HelpCircle,
-  History,
-  Languages,
-  PieChart,
-  PiggyBank,
-  Printer,
   ReceiptText,
-  RefreshCw,
   RotateCcw,
   Save,
-  Sparkles,
-  Target,
   TrendingDown,
   TrendingUp,
-  Trash2,
-  Upload,
   Utensils,
   Wallet,
 } from 'lucide-react'
-import cashlyLogo from './assets/cashly_logo.png'
 import './App.css'
 
 import {
@@ -45,7 +27,6 @@ import {
 import {
   BISECTION_MIN,
   BISECTION_MAX,
-  BISECTION_ITERATIONS,
   isMoneyInputValid,
   getMoneyInputErrors,
   parseMoney,
@@ -680,11 +661,6 @@ const appCopy = {
   },
 }
 
-// Module-level active currency — set at the top of each App render.
-// This allows all existing formatRupiah() call sites (including in sub-components)
-// to automatically use the correct currency format without prop drilling.
-let _activeCurrency = DEFAULT_CURRENCY
-
 function getSafeLanguage(language) {
   return appCopy[language] ? language : DEFAULT_LANGUAGE
 }
@@ -763,14 +739,11 @@ function readMonthlyHistory() {
   }
 }
 
-
-
-// formatRupiah is kept as the canonical formatting function.
-// It delegates to formatCurrency using the module-level active currency,
-// so all existing call sites automatically use the selected currency.
-function formatRupiah(value) {
-  return formatCurrency(Number(value), _activeCurrency)
+function formatRupiah(value, currency = DEFAULT_CURRENCY) {
+  return formatCurrency(Number(value), currency)
 }
+
+
 
 function getConditionLabel(statusKey, conditionMode, language = DEFAULT_LANGUAGE) {
   const labels = conditionModeLabels[getSafeLanguage(language)] ?? conditionModeLabels[DEFAULT_LANGUAGE]
@@ -803,12 +776,12 @@ function normalizeLoadedExpenseValues(values = {}) {
 
 
 
-function getStatus(totalIncome, totalExpense, language = DEFAULT_LANGUAGE) {
+function getStatus(totalIncome, totalExpense, language = DEFAULT_LANGUAGE, currency = DEFAULT_CURRENCY) {
   const copy = getLanguageCopy(language).status
   const balance = totalIncome - totalExpense
 
   if (balance > 0) {
-    const formattedBalance = formatRupiah(balance)
+    const formattedBalance = formatRupiah(balance, currency)
 
     return {
       key: 'surplus',
@@ -833,7 +806,7 @@ function getStatus(totalIncome, totalExpense, language = DEFAULT_LANGUAGE) {
     }
   }
 
-  const formattedDeficit = formatRupiah(Math.abs(balance))
+  const formattedDeficit = formatRupiah(Math.abs(balance), currency)
 
   return {
     key: 'deficit',
@@ -846,7 +819,7 @@ function getStatus(totalIncome, totalExpense, language = DEFAULT_LANGUAGE) {
   }
 }
 
-function getProjectedStatus(balance, language = DEFAULT_LANGUAGE) {
+function getProjectedStatus(balance, language = DEFAULT_LANGUAGE, currency = DEFAULT_CURRENCY) {
   const copy = getLanguageCopy(language).projectedStatus
 
   if (balance > 0) {
@@ -854,7 +827,7 @@ function getProjectedStatus(balance, language = DEFAULT_LANGUAGE) {
       key: 'surplus',
       label: copy.surplus.label,
       tone: 'positive',
-      headline: copy.surplus.headline(formatRupiah(balance)),
+      headline: copy.surplus.headline(formatRupiah(balance, currency)),
       message: copy.surplus.message,
     }
   }
@@ -873,7 +846,7 @@ function getProjectedStatus(balance, language = DEFAULT_LANGUAGE) {
     key: 'deficit',
     label: copy.deficit.label,
     tone: 'danger',
-    headline: copy.deficit.headline(formatRupiah(Math.abs(balance))),
+    headline: copy.deficit.headline(formatRupiah(Math.abs(balance), currency)),
     message: copy.deficit.message,
   }
 }
@@ -915,7 +888,10 @@ function formatPercent(value, total) {
   return `${Math.round((value / total) * 100)}%`
 }
 
-function createBarChartSvg(data, { ariaLabel = 'Grafik batang laporan', width = 560, height = 260 } = {}) {
+function createBarChartSvg(
+  data,
+  { ariaLabel = 'Grafik batang laporan', currency = DEFAULT_CURRENCY, width = 560, height = 260 } = {},
+) {
   const maxValue = Math.max(...data.map((item) => item.value), 1)
   const plotHeight = height - 82
   const barWidth = Math.min(70, Math.max(36, (width - 120) / data.length - 18))
@@ -932,14 +908,18 @@ function createBarChartSvg(data, { ariaLabel = 'Grafik batang laporan', width = 
         return `
           <rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="2" fill="${item.color}" />
           <text x="${x + barWidth / 2}" y="${height - 38}" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">${escapeHtml(item.label)}</text>
-          <text x="${x + barWidth / 2}" y="${height - 18}" text-anchor="middle" font-size="11" fill="#475569">${escapeHtml(formatRupiah(item.value))}</text>
+          <text x="${x + barWidth / 2}" y="${height - 18}" text-anchor="middle" font-size="11" fill="#475569">${escapeHtml(formatRupiah(item.value, currency))}</text>
         `
       }).join('')}
     </svg>
   `
 }
 
-function createDonutChartSvg(data, total, { ariaLabel = 'Grafik donut laporan', totalLabel = 'Total', width = 560, height = 260 } = {}) {
+function createDonutChartSvg(
+  data,
+  total,
+  { ariaLabel = 'Grafik donut laporan', currency = DEFAULT_CURRENCY, totalLabel = 'Total', width = 560, height = 260 } = {},
+) {
   const radius = 74
   const circumference = 2 * Math.PI * radius
   let cumulative = 0
@@ -964,13 +944,13 @@ function createDonutChartSvg(data, total, { ariaLabel = 'Grafik donut laporan', 
         ${segments.join('')}
       </g>
       <text x="130" y="121" text-anchor="middle" font-size="12" fill="#475569">${escapeHtml(totalLabel)}</text>
-      <text x="130" y="141" text-anchor="middle" font-size="13" font-weight="800" fill="#0f172a">${escapeHtml(formatRupiah(total))}</text>
+      <text x="130" y="141" text-anchor="middle" font-size="13" font-weight="800" fill="#0f172a">${escapeHtml(formatRupiah(total, currency))}</text>
       ${data.map((item, index) => {
         const y = 62 + index * 36
         return `
           <circle cx="285" cy="${y - 4}" r="4" fill="${item.color}" />
           <text x="302" y="${y}" font-size="13" font-weight="700" fill="#0f172a">${escapeHtml(item.label)}</text>
-          <text x="302" y="${y + 18}" font-size="11" fill="#475569">${escapeHtml(formatRupiah(item.value))} - ${escapeHtml(formatPercent(item.value, total))}</text>
+          <text x="302" y="${y + 18}" font-size="11" fill="#475569">${escapeHtml(formatRupiah(item.value, currency))} - ${escapeHtml(formatPercent(item.value, total))}</text>
         `
       }).join('')}
     </svg>
@@ -980,15 +960,17 @@ function createDonutChartSvg(data, total, { ariaLabel = 'Grafik donut laporan', 
 function createPrintableReportHtml(report) {
   const languageCopy = getLanguageCopy(report.language)
   const reportCopy = languageCopy.report
+  const reportCurrency = report.currency ?? DEFAULT_CURRENCY
+  const formatReportCurrency = (value) => formatRupiah(value, reportCurrency)
   const inputExpenseTotal = report.expenseChartData.reduce((sum, item) => sum + item.value, 0)
   const bisectionRows = report.bisectionResult.rows
     .map((row) => `
       <tr>
         <td>${row.iteration}</td>
-        <td>${escapeHtml(formatRupiah(row.a))}</td>
-        <td>${escapeHtml(formatRupiah(row.b))}</td>
-        <td>${escapeHtml(formatRupiah(row.c))}</td>
-        <td>${escapeHtml(formatRupiah(row.fc))}</td>
+        <td>${escapeHtml(formatReportCurrency(row.a))}</td>
+        <td>${escapeHtml(formatReportCurrency(row.b))}</td>
+        <td>${escapeHtml(formatReportCurrency(row.c))}</td>
+        <td>${escapeHtml(formatReportCurrency(row.fc))}</td>
       </tr>
     `)
     .join('')
@@ -1042,15 +1024,15 @@ function createPrintableReportHtml(report) {
           </div>
  
           <div class="grid-3">
-            <div class="card"><span>${escapeHtml(reportCopy.totalIncome)}</span><strong>${escapeHtml(formatRupiah(report.totalIncome))}</strong></div>
-            <div class="card"><span>${escapeHtml(reportCopy.totalExpense)}</span><strong>${escapeHtml(formatRupiah(report.totalExpense))}</strong></div>
-            <div class="card"><span>${escapeHtml(reportCopy.finalBalance)}</span><strong>${escapeHtml(formatRupiah(report.balance))}</strong><p class="status">${escapeHtml(report.statusLabel)}</p></div>
+            <div class="card"><span>${escapeHtml(reportCopy.totalIncome)}</span><strong>${escapeHtml(formatReportCurrency(report.totalIncome))}</strong></div>
+            <div class="card"><span>${escapeHtml(reportCopy.totalExpense)}</span><strong>${escapeHtml(formatReportCurrency(report.totalExpense))}</strong></div>
+            <div class="card"><span>${escapeHtml(reportCopy.finalBalance)}</span><strong>${escapeHtml(formatReportCurrency(report.balance))}</strong><p class="status">${escapeHtml(report.statusLabel)}</p></div>
           </div>
  
           <section>
             <h2>${escapeHtml(reportCopy.bisectionTitle)}</h2>
-            <p>${escapeHtml(reportCopy.functionLabel)}: <strong>f(x) = x - E</strong>. ${escapeHtml(reportCopy.initialInterval)}: <strong>${escapeHtml(formatRupiah(BISECTION_MIN))}</strong> ${escapeHtml(reportCopy.until)} <strong>${escapeHtml(formatRupiah(BISECTION_MAX))}</strong>.</p>
-            <p>${escapeHtml(reportCopy.eUses)} ${escapeHtml(report.bisectionSourceLabel)} ${escapeHtml(reportCopy.amountOf)} <strong>${escapeHtml(formatRupiah(report.bisectionResult.expense))}</strong>. ${escapeHtml(reportCopy.breakEven)}: <strong>${escapeHtml(formatRupiah(report.bisectionResult.expense))}</strong>. ${escapeHtml(reportCopy.conclusion)}: <strong>${escapeHtml(report.breakEvenStatusLabel)}</strong>.</p>
+            <p>${escapeHtml(reportCopy.functionLabel)}: <strong>f(x) = x - E</strong>. ${escapeHtml(reportCopy.initialInterval)}: <strong>${escapeHtml(formatReportCurrency(report.bisectionResult.bisMin ?? BISECTION_MIN))}</strong> ${escapeHtml(reportCopy.until)} <strong>${escapeHtml(formatReportCurrency(report.bisectionResult.bisMax ?? BISECTION_MAX))}</strong>.</p>
+            <p>${escapeHtml(reportCopy.eUses)} ${escapeHtml(report.bisectionSourceLabel)} ${escapeHtml(reportCopy.amountOf)} <strong>${escapeHtml(formatReportCurrency(report.bisectionResult.expense))}</strong>. ${escapeHtml(reportCopy.breakEven)}: <strong>${escapeHtml(formatReportCurrency(report.bisectionResult.expense))}</strong>. ${escapeHtml(reportCopy.conclusion)}: <strong>${escapeHtml(report.breakEvenStatusLabel)}</strong>.</p>
             <table>
               <thead><tr><th>${escapeHtml(reportCopy.iteration)}</th><th>a</th><th>b</th><th>c</th><th>f(c)</th></tr></thead>
               <tbody>${bisectionRows}</tbody>
@@ -1063,8 +1045,8 @@ function createPrintableReportHtml(report) {
             <table>
               <thead><tr><th>${escapeHtml(reportCopy.component)}</th><th>${escapeHtml(reportCopy.coefficient)}</th><th>${escapeHtml(reportCopy.value)}</th></tr></thead>
               <tbody>
-                ${report.splComponents.map((item) => `<tr><td>${escapeHtml(item.symbol)} - ${escapeHtml(item.label)}</td><td>${escapeHtml(item.coefficient)}</td><td>${escapeHtml(formatRupiah(item.value))}</td></tr>`).join('')}
-                <tr><th>${escapeHtml(reportCopy.totalExpense)}</th><th>${escapeHtml(reportCopy.sum)}</th><th>${escapeHtml(formatRupiah(report.totalExpense))}</th></tr>
+                ${report.splComponents.map((item) => `<tr><td>${escapeHtml(item.symbol)} - ${escapeHtml(item.label)}</td><td>${escapeHtml(item.coefficient)}</td><td>${escapeHtml(formatReportCurrency(item.value))}</td></tr>`).join('')}
+                <tr><th>${escapeHtml(reportCopy.totalExpense)}</th><th>${escapeHtml(reportCopy.sum)}</th><th>${escapeHtml(formatReportCurrency(report.totalExpense))}</th></tr>
               </tbody>
             </table>
           </section>
@@ -1077,12 +1059,13 @@ function createPrintableReportHtml(report) {
                 ${createBarChartSvg([
                   { label: languageCopy.fields.income, value: report.totalIncome, color: '#0f294a' },
                   { label: languageCopy.fields.expense, value: report.totalExpense, color: '#0f766e' },
-                ], { ariaLabel: languageCopy.charts.barAria })}
+                ], { ariaLabel: languageCopy.charts.barAria, currency: reportCurrency })}
               </div>
               <div>
                 <h3>${escapeHtml(languageCopy.charts.expensePercentage)}</h3>
                 ${createDonutChartSvg(report.expenseChartData, inputExpenseTotal, {
                   ariaLabel: languageCopy.charts.pieAria,
+                  currency: reportCurrency,
                   totalLabel: languageCopy.charts.total,
                 })}
               </div>
@@ -1121,6 +1104,8 @@ function hexToRgb(hex) {
 function createReportPdf(report) {
   const languageCopy = getLanguageCopy(report.language)
   const reportCopy = languageCopy.report
+  const reportCurrency = report.currency ?? DEFAULT_CURRENCY
+  const formatReportCurrency = (value) => formatRupiah(value, reportCurrency)
   const pageWidth = 595.28
   const pageHeight = 841.89
   const margin = 42
@@ -1249,7 +1234,7 @@ function createReportPdf(report) {
       const barTop = plotTop + plotHeight - barHeight
       rect(barX, barTop, barWidth, barHeight, item.color, null)
       text(item.label.slice(0, 16), barX - 2, top + height - 34, 7, 'F1', '#475569')
-      text(formatRupiah(item.value), barX - 2, top + height - 18, 7, 'F2', '#0f172a')
+      text(formatReportCurrency(item.value), barX - 2, top + height - 18, 7, 'F2', '#0f172a')
     })
   }
 
@@ -1269,7 +1254,7 @@ function createReportPdf(report) {
     data.forEach((item, index) => {
       const lineTop = top + 82 + index * 18
       rect(x + 14, lineTop - 9, 7, 7, item.color, null)
-      text(`${item.label} - ${formatRupiah(item.value)} (${formatPercent(item.value, total)})`, x + 28, lineTop, 8, 'F1', '#0f172a')
+      text(`${item.label} - ${formatReportCurrency(item.value)} (${formatPercent(item.value, total)})`, x + 28, lineTop, 8, 'F1', '#0f172a')
     })
   }
 
@@ -1280,18 +1265,18 @@ function createReportPdf(report) {
   paragraph(reportCopy.pdfIntro(report.periodLabel, report.generatedAt), margin, contentWidth, 10)
   y += 10
 
-  summaryCard(margin, reportCopy.totalIncome, formatRupiah(report.totalIncome), '', '#0f294a')
-  summaryCard(margin + 174, reportCopy.totalExpense, formatRupiah(report.totalExpense), '', '#0f766e')
-  summaryCard(margin + 348, reportCopy.finalBalance, formatRupiah(report.balance), report.statusLabel, report.balance >= 0 ? '#0f766e' : '#991b1b')
+  summaryCard(margin, reportCopy.totalIncome, formatReportCurrency(report.totalIncome), '', '#0f294a')
+  summaryCard(margin + 174, reportCopy.totalExpense, formatReportCurrency(report.totalExpense), '', '#0f766e')
+  summaryCard(margin + 348, reportCopy.finalBalance, formatReportCurrency(report.balance), report.statusLabel, report.balance >= 0 ? '#0f766e' : '#991b1b')
   y += 86
 
   sectionTitle(reportCopy.bisectionTitle)
   paragraph(
     reportCopy.pdfBisectionSummary(
-      formatRupiah(BISECTION_MIN),
-      formatRupiah(BISECTION_MAX),
+      formatReportCurrency(report.bisectionResult.bisMin ?? BISECTION_MIN),
+      formatReportCurrency(report.bisectionResult.bisMax ?? BISECTION_MAX),
       report.bisectionSourceLabel,
-      formatRupiah(report.bisectionResult.expense),
+      formatReportCurrency(report.bisectionResult.expense),
       report.breakEvenStatusLabel,
     ),
     margin,
@@ -1303,10 +1288,10 @@ function createReportPdf(report) {
     [reportCopy.iteration, 'a', 'b', 'c', 'f(c)'],
     report.bisectionResult.rows.slice(0, 10).map((row) => [
       String(row.iteration),
-      formatRupiah(row.a),
-      formatRupiah(row.b),
-      formatRupiah(row.c),
-      formatRupiah(row.fc),
+      formatReportCurrency(row.a),
+      formatReportCurrency(row.b),
+      formatReportCurrency(row.c),
+      formatReportCurrency(row.fc),
     ]),
     [54, 110, 110, 110, 110],
   )
@@ -1321,9 +1306,9 @@ function createReportPdf(report) {
       ...report.splComponents.map((item) => [
         `${item.symbol} - ${item.label}`,
         item.coefficient,
-        formatRupiah(item.value),
+        formatReportCurrency(item.value),
       ]),
-      [`T - ${reportCopy.totalExpense}`, reportCopy.sum, formatRupiah(report.totalExpense)],
+      [`T - ${reportCopy.totalExpense}`, reportCopy.sum, formatReportCurrency(report.totalExpense)],
     ],
     [240, 110, 160],
   )
@@ -1425,45 +1410,6 @@ function printPdfReport(report) {
   }, 250)
 
   return true
-}
-
-function Tooltip({ ariaLabel = appCopy[DEFAULT_LANGUAGE].tooltipHelpLabel, text }) {
-  return (
-    <span className="tooltip-container">
-      <span className="tooltip-icon" aria-label={ariaLabel}>
-        <HelpCircle size={13} strokeWidth={2.2} />
-      </span>
-      <span className="tooltip-box">{text}</span>
-    </span>
-  )
-}
-
-function LanguageSwitcher({ language, onChange, copy }) {
-  const options = [
-    { code: 'id', label: copy.id, title: copy.idTitle },
-    { code: 'en', label: copy.en, title: copy.enTitle },
-  ]
-
-  return (
-    <div className="language-switcher" aria-label={copy.ariaLabel}>
-      <Languages size={16} strokeWidth={2.2} />
-      <span>{copy.label}</span>
-      <div className="language-options">
-        {options.map((option) => (
-          <button
-            aria-pressed={language === option.code}
-            className={language === option.code ? 'active' : ''}
-            key={option.code}
-            onClick={() => onChange(option.code)}
-            title={option.title}
-            type="button"
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
 }
 
 function useIsMobile() {
@@ -1601,7 +1547,11 @@ function MobileResult({
   conditionMode,
   expenseValues,
   translatedExpenseFields,
-  setProjectionMethod
+  setProjectionMethod,
+  selectedCurrency,
+  handleCurrencyChange,
+  ratesLive,
+  ratesLoading
 }) {
   return (
     <main className="app-shell">
@@ -1610,6 +1560,15 @@ function MobileResult({
           {notice}
         </p>
       )}
+      <div className="mobile-result-toolbar">
+        <span className="field-label">Mata Uang / Currency</span>
+        <CurrencySelector
+          currency={selectedCurrency}
+          onChange={handleCurrencyChange}
+          ratesLive={ratesLive}
+          ratesLoading={ratesLoading}
+        />
+      </div>
       <ResultSection
         t={t}
         language={language}
@@ -1713,7 +1672,7 @@ function App() {
   // ── Multi-currency state ───────────────────────────────────────────────────
   const [selectedCurrency, setSelectedCurrency] = useState(() => readSavedCurrency())
   const [exchangeRates, setExchangeRates] = useState(STATIC_EXCHANGE_RATES)
-  const [ratesLoading, setRatesLoading] = useState(false)
+  const [ratesLoading, setRatesLoading] = useState(true)
   const [ratesLive, setRatesLive] = useState(false)
   // ── Mobile collapsible sections ────────────────────────────────────────────
   const [mobileChartOpen, setMobileChartOpen] = useState(true)
@@ -1726,10 +1685,11 @@ function App() {
   const [mobileStep, setMobileStep] = useState(1)
   const [showAdvanced, setShowAdvanced] = useState(false)
 
-  // Set module-level currency so all formatRupiah() calls use the right format
-  _activeCurrency = selectedCurrency
-
   const t = getLanguageCopy(language)
+  const formatRupiah = useCallback(
+    (value) => formatCurrency(Number(value), selectedCurrency),
+    [selectedCurrency],
+  )
   const translatedIncomeFields = useMemo(() => translateFields(incomeFields, language), [language])
   const translatedExpenseFields = useMemo(() => translateFields(expenseFields, language), [language])
 
@@ -1754,10 +1714,13 @@ function App() {
 
   // Fetch live exchange rates from open.er-api.com (free, no API key required)
   useEffect(() => {
-    setRatesLoading(true)
+    let isActive = true
+
     fetch('https://open.er-api.com/v6/latest/IDR')
       .then((res) => res.json())
       .then((data) => {
+        if (!isActive) return
+
         if (data.result === 'success' && data.rates) {
           setExchangeRates({
             IDR: 1,
@@ -1769,10 +1732,20 @@ function App() {
         }
       })
       .catch(() => {
+        if (!isActive) return
+
         // API unavailable – keep static fallback rates silently
         setRatesLive(false)
       })
-      .finally(() => setRatesLoading(false))
+      .finally(() => {
+        if (isActive) {
+          setRatesLoading(false)
+        }
+      })
+
+    return () => {
+      isActive = false
+    }
   }, [])
 
   const moneyInputErrors = useMemo(() => ({
@@ -1799,7 +1772,12 @@ function App() {
     }
   }, [expenseValues, incomeValues])
 
-  const status = getStatus(totals.totalIncome, totals.totalExpense, language)
+  const getStatusForCurrency = useCallback(
+    (totalIncome, totalExpense, statusLanguage = language) =>
+      getStatus(totalIncome, totalExpense, statusLanguage, selectedCurrency),
+    [language, selectedCurrency],
+  )
+  const status = getStatusForCurrency(totals.totalIncome, totals.totalExpense, language)
   const displayStatusLabel = getConditionLabel(status.key, conditionMode, language)
   const StatusIcon = status.icon
   const isAnalysisCalculated = hasCalculated && !hasInvalidMoneyInput
@@ -1865,8 +1843,8 @@ function App() {
   )
 
   const predictedStatus = useMemo(
-    () => getProjectedStatus(numericalProjection.projectedBalance, language),
-    [language, numericalProjection],
+    () => getProjectedStatus(numericalProjection.projectedBalance, language, selectedCurrency),
+    [language, numericalProjection, selectedCurrency],
   )
 
   const bisectionExpense = hasCalculated ? totals.totalExpense : 0
@@ -1927,7 +1905,6 @@ function App() {
       Object.fromEntries(Object.entries(prev).map(([k, v]) => [k, v ? convertVal(v) : v]))
     )
     setSelectedCurrency(newCurrency)
-    setHasCalculated(false)
     setNotice('')
   }
 
@@ -2017,10 +1994,11 @@ function App() {
   }
 
   function getReportData() {
-    const breakEvenStatus = getStatus(totals.totalIncome, bisectionResult.expense, language)
+    const breakEvenStatus = getStatus(totals.totalIncome, bisectionResult.expense, language, selectedCurrency)
 
     return {
       language,
+      currency: selectedCurrency,
       monthKey: selectedMonth || getCurrentMonthKey(),
       periodLabel: formatMonthLabel(selectedMonth, language),
       generatedAt: new Date().toLocaleString(t.locale, {
@@ -2180,13 +2158,17 @@ function App() {
           mobileRecoOpen={mobileRecoOpen}
           setMobileRecoOpen={setMobileRecoOpen}
           getConditionLabel={getConditionLabel}
-          getStatus={getStatus}
+          getStatus={getStatusForCurrency}
           parseMoney={parseMoney}
           expenseData={expenseData}
           conditionMode={conditionMode}
           expenseValues={expenseValues}
           translatedExpenseFields={translatedExpenseFields}
           setProjectionMethod={setProjectionMethod}
+          selectedCurrency={selectedCurrency}
+          handleCurrencyChange={handleCurrencyChange}
+          ratesLive={ratesLive}
+          ratesLoading={ratesLoading}
         />
       )
     }
@@ -2250,6 +2232,7 @@ function App() {
       predictedStatus={predictedStatus}
       projectionDataset={projectionDataset}
       projectionMethod={projectionMethod}
+      setProjectionMethod={setProjectionMethod}
       monthlyHistory={monthlyHistory}
       handleLoadHistory={handleLoadHistory}
       handleDeleteHistory={handleDeleteHistory}
@@ -2264,7 +2247,7 @@ function App() {
       mobileRecoOpen={mobileRecoOpen}
       setMobileRecoOpen={setMobileRecoOpen}
       getConditionLabel={getConditionLabel}
-      getStatus={getStatus}
+      getStatus={getStatusForCurrency}
       parseMoney={parseMoney}
       expenseData={expenseData}
       spendingRatio={spendingRatio}
